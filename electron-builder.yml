@@ -1,0 +1,12 @@
+# This configuration instructs electron-builder how to package and publish your app.
+# Keep any existing configuration settings (e.g. directories, files, productName).
+
+# Publish packaged artifacts to the current GitHub repository.
+publish:
+  provider: github
+  owner: YOUR_GITHUB_USERNAME # Replace with your GitHub username or organisation
+  repo: YOUR_REPOSITORY_NAME  # Replace with the repository name where this project lives
+
+# Include the following two lines only if your repository is private or you use a personal access token
+# ghToken: ${env.GH_TOKEN}
+# Note: GH_TOKEN should be configured in your repository secrets as an access token with repo scope.
