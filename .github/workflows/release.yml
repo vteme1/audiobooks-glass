@@ -2,27 +2,27 @@ name: Build and release EXE
 
 on:
   push:
-    tags:
-      - 'v*.*.*'
+    tags: ['v*.*.*']
 
 jobs:
   release:
     runs-on: windows-latest
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
 
-      - name: Install dependencies
-        run: npm install
+      - name: Install deps
+        run: npm ci
 
-      - name: Build & release Electron app
-        uses: samuelmeuli/action-electron-builder@v1
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          release: true
+      - name: Build frontend (Vite)
+        run: npm run build
+
+      - name: Build Windows installer + publish to Releases
+        run: npx electron-builder --win nsis -p always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
