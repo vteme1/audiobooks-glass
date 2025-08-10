@@ -16,8 +16,11 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install deps
-        run: npm ci
+      - name: Install deps (no lock)
+        shell: pwsh
+        run: |
+          if (Test-Path package-lock.json) { Remove-Item package-lock.json -Force }
+          npm install
 
       - name: Build frontend (Vite)
         run: npm run build
