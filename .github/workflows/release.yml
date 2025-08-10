@@ -23,7 +23,7 @@ jobs:
 
       # Step\u00a03: Install project dependencies
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       # Step\u00a04: Build and publish the Electron application using electron-builder
       # The action automatically packages the app and publishes the artifacts to GitHub Releases.
