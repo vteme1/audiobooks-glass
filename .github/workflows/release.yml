@@ -1,0 +1,36 @@
+name: Build and release EXE
+
+# Trigger the workflow only when pushing tags that follow the semantic versioning pattern.
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      # Step\u00a01: Check out the repository so the workflow can access the source code
+      - name: Check out repository
+        uses: actions/checkout@v3
+
+      # Step\u00a02: Install the required Node.js version (change if your project uses another version)
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      # Step\u00a03: Install project dependencies
+      - name: Install dependencies
+        run: npm ci
+
+      # Step\u00a04: Build and publish the Electron application using electron-builder
+      # The action automatically packages the app and publishes the artifacts to GitHub Releases.
+      - name: Build & release Electron app
+        uses: samuelmeuli/action-electron-builder@v1
+        with:
+          # GitHub token is automatically provided by the action and does not need to be added as a secret.
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          # Release the app when the workflow runs on a tag push
+          release: true
