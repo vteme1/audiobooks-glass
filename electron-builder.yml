@@ -4,8 +4,8 @@
 # Publish packaged artifacts to the current GitHub repository.
 publish:
   provider: github
-  owner: YOUR_GITHUB_USERNAME # Replace with your GitHub username or organisation
-  repo: YOUR_REPOSITORY_NAME  # Replace with the repository name where this project lives
+  owner: vteme1 # Replace with your GitHub username or organisation
+  repo: audiobooks-glass  # Replace with the repository name where this project lives
 
 # Include the following two lines only if your repository is private or you use a personal access token
 # ghToken: ${env.GH_TOKEN}
