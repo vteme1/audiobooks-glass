@@ -5,47 +5,31 @@ function createWindow() {
   const win = new BrowserWindow({
     width: 1200,
     height: 800,
+    backgroundColor: '#0b0f1a',
+    titleBarStyle: 'hiddenInset',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
-      nodeIntegration: false,
-    },
+      sandbox: true
+    }
   });
 
-  if (app.isPackaged) {
-    win.loadFile(path.join(__dirname, '..', 'dist/index.html'));
-  } else {
-    win.loadURL('http://localhost:5173');
-    win.webContents.openDevTools();
-  }
+  const isDev = !app.isPackaged;
+  if (isDev) win.loadURL('http://localhost:5173');
+  else win.loadFile(path.join(__dirname, '..', 'dist', 'index.html'));
 }
 
 app.whenReady().then(() => {
-  createWindow();
-
   ipcMain.handle('dialog:openFiles', async () => {
     const { canceled, filePaths } = await dialog.showOpenDialog({
+      title: 'Выберите аудиокниги',
       properties: ['openFile', 'multiSelections'],
-      filters: [
-        { name: 'Audio', extensions: ['mp3','m4b','ogg','wav'] },
-      ],
+      filters: [{ name: 'Аудио', extensions: ['mp3','m4b','m4a','flac','wav','ogg'] }]
     });
-    if (canceled) {
-      return [];
-    }
-    return filePaths.map(p => ({
-      path: p,
-      name: path.basename(p),
-    }));
+    return canceled ? [] : filePaths;
   });
-});
 
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
+  createWindow();
+  app.on('activate', () => BrowserWindow.getAllWindows().length === 0 && createWindow());
 });
-
-app.on('activate', () => {
-  if (BrowserWindow.getAllWindows().length === 0) createWindow();
-});
+app.on('window-all-closed', () => process.platform !== 'darwin' && app.quit());
