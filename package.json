@@ -1,0 +1,51 @@
+{
+  "name": "audiobooks-glass",
+  "version": "0.1.0",
+  "description": "Audio book player with modern liquid glass design",
+  "main": "electron/main.js",
+  "author": "vtme1",
+  "scripts": {
+    "start": "electron .",
+    "dev": "vite",
+    "build": "vite build",
+    "dist": "electron-builder"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "vite": "^4.4.0",
+    "@vitejs/plugin-react": "^3.1.0",
+    "electron": "^27.3.0",
+    "electron-builder": "^24.13.1",
+    "tailwindcss": "^3.3.0",
+    "postcss": "^8.4.23",
+    "autoprefixer": "^10.4.14",
+    "concurrently": "^7.6.0"
+  },
+  "build": {
+    "appId": "com.vtme1.audiobooks-glass",
+    "files": [
+      "dist/**/*",
+      "electron/**/*"
+    ],
+    "directories": {
+      "buildResources": "assets"
+    },
+    "mac": {
+      "target": "dmg"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "linux": {
+      "target": "AppImage"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "vtme1",
+      "repo": "audiobooks-glass"
+    }
+  }
+}
