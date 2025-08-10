@@ -1,188 +1,165 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
-const App = () => {
-  const [playlist, setPlaylist] = useState([]);
-  const [currentTrackIndex, setCurrentTrackIndex] = useState(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [speed, setSpeed] = useState(1.0);
-  const [volume, setVolume] = useState(1.0);
+function GlassCard({ children, className='' }) {
+  return (
+    <div className={
+      `rounded-2xl p-4 md:p-6 shadow-xl
+       bg-white/8 dark:bg-white/6 backdrop-blur-xl
+       ring-1 ring-white/10 ${className}`
+    }>
+      {children}
+    </div>
+  );
+}
+
+export default function App() {
   const audioRef = useRef(null);
+  const [tracks, setTracks] = useState([]);          // [{name, path, url}]
+  const [current, setCurrent] = useState(0);
+  const [playing, setPlaying] = useState(false);
+  const [coverUrl, setCoverUrl] = useState('');
+  const [rate, setRate] = useState(1.0);
+  const [pos, setPos] = useState(0);
 
-  const handleFileInput = async () => {
-    try {
-      const files = await window.electron?.openFiles?.();
-      if (files && files.length > 0) {
-        const newTracks = files.map(file => ({
-          id: Date.now() + Math.random(),
-          title: file.name,
-          src: file.path.startsWith('file://') ? file.path : `file://${file.path}`,
-          cover: null,
-        }));
-        setPlaylist(prev => [...prev, ...newTracks]);
-        if (currentTrackIndex === null) setCurrentTrackIndex(0);
-      }
-    } catch (err) {
-      console.error(err);
+  // восстановление состояния
+  useEffect(() => {
+    const saved = localStorage.getItem('ab_state');
+    if (saved) {
+      const s = JSON.parse(saved);
+      setTracks(s.tracks ?? []);
+      setCurrent(s.current ?? 0);
+      setCoverUrl(s.coverUrl ?? '');
+      setRate(s.rate ?? 1.0);
+      setPos(s.pos ?? 0);
     }
+  }, []);
+
+  // сохранение состояния
+  useEffect(() => {
+    localStorage.setItem('ab_state', JSON.stringify({ tracks, current, coverUrl, rate, pos }));
+  }, [tracks, current, coverUrl, rate, pos]);
+
+  const currentTrack = tracks[current];
+
+  const pickFiles = async () => {
+    const files = await window.electron.openFiles();
+    if (!files || !files.length) return;
+    const next = files.map(p => ({ name: p.split(/[\\/]/).pop(), path: p, url: window.electron.toFileUrl(p) }));
+    setTracks(next);
+    setCurrent(0);
+    setPlaying(true);
   };
 
-  const handleAddURL = () => {
-    const src = prompt('Enter audio URL:');
-    if (!src) return;
-    const cover = prompt('Enter cover URL (optional):');
-    const title = src.split('/').pop();
-    setPlaylist(prev => [
-      ...prev,
-      {
-        id: Date.now() + Math.random(),
-        title,
-        src,
-        cover: cover || null,
-      },
-    ]);
-    if (currentTrackIndex === null) setCurrentTrackIndex(0);
+  const toggle = () => {
+    const a = audioRef.current;
+    if (!a) return;
+    if (a.paused) { a.play(); setPlaying(true); } else { a.pause(); setPlaying(false); }
+  };
+
+  const onEnded = () => {
+    if (current + 1 < tracks.length) setCurrent(current + 1);
+    else setPlaying(false);
   };
 
   useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    audio.playbackRate = speed;
-    audio.volume = volume;
-    if (isPlaying) {
-      audio.play().catch(() => {});
-    } else {
-      audio.pause();
-    }
-  }, [isPlaying, currentTrackIndex, speed, volume]);
+    const a = audioRef.current;
+    if (!a || !currentTrack) return;
+    a.playbackRate = rate;
+    a.currentTime = pos || 0;
+    if (playing) a.play().catch(()=>{});
+  }, [currentTrack]);
 
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    const update = () => {
-      setProgress(audio.currentTime / audio.duration || 0);
-    };
-    audio.addEventListener('timeupdate', update);
-    audio.addEventListener('ended', () => {
-      setCurrentTrackIndex(i => {
-        if (playlist.length === 0) return null;
-        const next = (i ?? -1) + 1;
-        return next < playlist.length ? next : 0;
-      });
-    });
-    return () => {
-      audio.removeEventListener('timeupdate', update);
-    };
-  }, [playlist]);
-
-  const handleSeek = (e) => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    const newTime = (e.target.value / 100) * audio.duration;
-    audio.currentTime = newTime;
+  // запоминать позицию
+  const onTimeUpdate = () => {
+    const a = audioRef.current;
+    if (!a) return;
+    setPos(a.currentTime);
   };
-
-  const togglePlay = () => {
-    setIsPlaying(prev => !prev);
-  };
-
-  const nextTrack = () => {
-    setCurrentTrackIndex(i => {
-      if (playlist.length === 0) return null;
-      const next = (i ?? -1) + 1;
-      return next < playlist.length ? next : 0;
-    });
-  };
-
-  const prevTrack = () => {
-    setCurrentTrackIndex(i => {
-      if (playlist.length === 0) return null;
-      const prev = (i ?? playlist.length) - 1;
-      return prev >= 0 ? prev : playlist.length - 1;
-    });
-  };
-
-  const currentTrack = currentTrackIndex !== null ? playlist[currentTrackIndex] : null;
 
   return (
-    <div className="min-h-screen p-4 text-gray-800 dark:text-gray-200">
-      <h1 className="text-3xl font-bold mb-4">Audiobooks Glass</h1>
-      <div className="flex flex-col lg:flex-row gap-4">
-        <div className="w-full lg:w-2/3 p-4 bg-white/30 dark:bg-gray-700/50 backdrop-blur-md rounded-xl shadow-lg">
-          {currentTrack ? (
-            <div>
-              {currentTrack.cover ? (
-                <img src={currentTrack.cover} alt="cover" className="w-full h-48 object-cover rounded-lg mb-4" />
-              ) : (
-                <div className="w-full h-48 bg-gray-300 dark:bg-gray-600 rounded-lg mb-4 flex items-center justify-center">
-                  <span>No Cover</span>
-                </div>
-              )}
-              <h2 className="text-xl font-semibold mb-2">{currentTrack.title}</h2>
-              <audio ref={audioRef} src={currentTrack.src} onLoadedMetadata={() => setProgress(0)} />
-              <div className="flex items-center gap-4 mb-2">
-                <button onClick={prevTrack} className="px-3 py-2 bg-gray-200/50 dark:bg-gray-800/50 rounded-lg">Prev</button>
-                <button onClick={togglePlay} className="px-4 py-2 bg-blue-500 text-white rounded-lg">{isPlaying ? 'Pause' : 'Play'}</button>
-                <button onClick={nextTrack} className="px-3 py-2 bg-gray-200/50 dark:bg-gray-800/50 rounded-lg">Next</button>
-              </div>
-              <input type="range" min="0" max="100" value={(progress * 100) || 0} onChange={handleSeek} className="w-full mb-2" />
-              <div className="flex gap-4 mb-2">
-                <label className="flex items-center gap-1">
-                  Speed:
-                  <input type="range" min="0.5" max="2" step="0.1" value={speed} onChange={e => setSpeed(parseFloat(e.target.value))} />
-                </label>
-                <label className="flex items-center gap-1">
-                  Volume:
-                  <input type="range" min="0" max="1" step="0.01" value={volume} onChange={e => setVolume(parseFloat(e.target.value))} />
-                </label>
-              </div>
-            </div>
-          ) : (
-            <p>No track selected</p>
-          )}
-        </div>
-        <div className="w-full lg:w-1/3 p-4 bg-white/30 dark:bg-gray-700/50 backdrop-blur-md rounded-xl shadow-lg">
-          <h3 className="text-lg font-semibold mb-2">Playlist</h3>
-          <ul className="space-y-2 overflow-y-auto max-h-96">
-            {playlist.map((track, index) => (
-              <li
-                key={track.id}
-                onClick={() => setCurrentTrackIndex(index)}
-                className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer ${
-                  index === currentTrackIndex ? 'bg-blue-500/20' : 'hover:bg-gray-200/20'
-                }`}
-              >
-                {track.cover ? (
-                  <img src={track.cover} alt="cover-thumb" className="w-12 h-12 object-cover rounded-lg" />
-                ) : (
-                  <div className="w-12 h-12 bg-gray-300 dark:bg-gray-600 rounded-lg flex items-center justify-center">🎧</div>
-                )}
-                <span className="flex-1 truncate">{track.title}</span>
-              </li>
-            ))}
-          </ul>
-          <div className="mt-4 flex flex-col gap-2">
-            <button onClick={handleFileInput} className="px-4 py-2 bg-green-500 text-white rounded-lg">Add Files</button>
-            <button onClick={handleAddURL} className="px-4 py-2 bg-indigo-500 text-white rounded-lg">Add URL</button>
-            {currentTrack && (
-              <button
-                onClick={() => {
-                  const newCover = prompt('Enter new cover URL:');
-                  if (!newCover) return;
-                  setPlaylist(prev =>
-                    prev.map((t, i) => (i === currentTrackIndex ? { ...t, cover: newCover } : t))
-                  );
-                }}
-                className="px-4 py-2 bg-yellow-500 text-white rounded-lg"
-              >
-                Set Cover
-              </button>
-            )}
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 text-slate-50 p-4 md:p-8">
+      <div className="max-w-6xl mx-auto grid md:grid-cols-[380px_1fr] gap-6">
+        {/* Левая колонка: обложка + управление */}
+        <GlassCard className="flex flex-col items-center gap-4">
+          <div className="w-64 h-64 rounded-3xl overflow-hidden ring-1 ring-white/15 bg-white/5">
+            {coverUrl
+              ? <img alt="Обложка" src={coverUrl} className="w-full h-full object-cover" />
+              : <div className="w-full h-full grid place-content-center text-slate-300">
+                  Обложка не задана
+                </div>}
           </div>
+
+          <div className="w-full">
+            <label className="text-sm text-slate-300">Ссылка на обложку</label>
+            <input
+              className="mt-1 w-full rounded-xl bg-white/10 border border-white/10 px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-400/50"
+              placeholder="https://..."
+              value={coverUrl}
+              onChange={e => setCoverUrl(e.target.value)}
+            />
+          </div>
+
+          <div className="flex gap-2 w-full">
+            <button onClick={pickFiles}
+              className="flex-1 rounded-xl px-4 py-2 bg-indigo-500/80 hover:bg-indigo-500 transition font-medium">
+              Открыть файлы
+            </button>
+            <button onClick={toggle}
+              className="rounded-xl px-4 py-2 bg-slate-800/70 hover:bg-slate-700 transition">
+              {playing ? 'Пауза' : 'Играть'}
+            </button>
+          </div>
+
+          <div className="w-full">
+            <label className="text-sm text-slate-300">Скорость: {rate.toFixed(2)}×</label>
+            <input type="range" min="0.5" max="3" step="0.1" value={rate}
+              onChange={e => {
+                const v = parseFloat(e.target.value);
+                setRate(v);
+                if (audioRef.current) audioRef.current.playbackRate = v;
+              }}
+              className="w-full accent-indigo-400" />
+          </div>
+        </GlassCard>
+
+        {/* Правая колонка: плеер + плейлист */}
+        <div className="grid gap-6">
+          <GlassCard>
+            <div className="text-lg font-semibold mb-2">Сейчас играет</div>
+            <div className="text-slate-300 mb-3">{currentTrack ? currentTrack.name : '—'}</div>
+
+            <audio
+              ref={audioRef}
+              src={currentTrack?.url}
+              onEnded={onEnded}
+              onTimeUpdate={onTimeUpdate}
+              controls
+              className="w-full rounded-xl bg-black/20"
+            />
+          </GlassCard>
+
+          <GlassCard>
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-lg font-semibold">Плейлист</div>
+              <div className="text-sm text-slate-300">{tracks.length} файлов</div>
+            </div>
+
+            <ul className="divide-y divide-white/10">
+              {tracks.map((t, i) => (
+                <li key={t.path}
+                    className={`py-2 px-2 rounded-lg hover:bg-white/5 cursor-pointer ${i===current?'bg-indigo-500/10':''}`}
+                    onClick={() => { setCurrent(i); setPlaying(true); }}>
+                  <div className="truncate">{t.name}</div>
+                  <div className="text-xs text-slate-400 truncate">{t.path}</div>
+                </li>
+              ))}
+              {tracks.length === 0 && (
+                <li className="py-4 text-slate-400">Сначала нажмите «Открыть файлы».</li>
+              )}
+            </ul>
+          </GlassCard>
         </div>
       </div>
     </div>
   );
-};
-
-export default App;
+}
