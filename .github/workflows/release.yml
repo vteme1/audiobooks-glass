@@ -4,6 +4,9 @@ on:
   push:
     tags: ['v*.*.*']
 
+permissions:
+  contents: write   # нужно, чтобы заливать файлы в Releases
+
 jobs:
   release:
     runs-on: windows-latest
@@ -25,7 +28,20 @@ jobs:
       - name: Build frontend (Vite)
         run: npm run build
 
-      - name: Build Windows installer + publish to Releases
-        run: npx electron-builder --win nsis -p always
+      - name: Build Windows installer (no publish)
+        run: npx electron-builder --win nsis -p never
+
+      - name: Upload artifact (for debugging)
+        uses: actions/upload-artifact@v4
+        with:
+          name: win-installer
+          path: |
+            dist/**/*.exe
+
+      - name: Attach .exe to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/**/*.exe
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
